@@ -147,7 +147,11 @@ WORK="$(mktemp -d)"
 rsync -a --exclude .git --exclude .github --exclude README.md \
   --exclude ramdisk --exclude patch --exclude modules "$AK3_SRC/" "$WORK/"
 cp "$SRC/nezha/anykernel/anykernel.sh" "$WORK/anykernel.sh"
-cp "$IMAGE" "$WORK/Image"
+# Name it Image-dtb (not Image): ak3-core's flash_boot then drops the stock
+# appended kernel_dtb (case *-dtb) instead of re-appending it, so the repacked
+# boot is our Image only. This device gets its DTB from dtbo and boots with none
+# appended inside boot (proven). Our Image carries no appended DTB itself.
+cp "$IMAGE" "$WORK/Image-dtb"
 # nezha (sm8850, ARMv9) is 64-bit-only: AArch32 is gone. A 32-bit ARM busybox
 # or magiskboot can't exec on-device and the AK3 installer dies ("Busybox setup
 # failed" / magiskboot "syntax error"). Refuse to ship a zip with 32-bit tools.

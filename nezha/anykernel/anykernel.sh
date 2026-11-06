@@ -74,6 +74,12 @@ BLOCK=boot;
 IS_SLOT_DEVICE=1;
 RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=auto;
+# This is a ramdisk-less GKI boot. AK3's Magisk auto-detection runs
+# "magiskboot cpio ramdisk.cpio test" on a ramdisk that isn't there; the result
+# can be mis-read as "Magisk detected", sending flash_boot down a patch path
+# that keeps/patches the stock appended DTB and bloats the repacked kernel. We
+# never want that path (our kernel has KSU built in), so skip the check.
+NO_MAGISK_CHECK=1;
 
 # import functions/variables and setup patching - see for reference (DO NOT REMOVE)
 . tools/ak3-core.sh;
@@ -83,13 +89,11 @@ ui_print " " "Target slot: ${SLOT:-?} (${SLOT_SELECT:-active})" "Reason: $nezha_
 # boot install
 split_boot; # kernel only, no ramdisk unpack
 
-### Drop stock's appended DTB
-# This device gets its DTB from dtbo/vendor_boot; the running kernel boots with
-# no DTB appended inside boot. magiskboot splits stock's appended DTB out to
-# split_img/kernel_dtb and would re-append it on repack, making the boot ~20MB
-# larger and structurally unlike the proven image. Remove it so the repacked
-# boot is our Image only (kernel_sz matches what boots now).
-[ -f "$SPLITIMG/kernel_dtb" ] && { ui_print "Dropping stock appended DTB (device uses dtbo)"; rm -f "$SPLITIMG/kernel_dtb"; }
+# Drop stock's appended DTB: our kernel ships in the zip as "Image-dtb", so
+# ak3-core's flash_boot removes split_img/kernel_dtb for us (case *-dtb). This
+# device takes its DTB from dtbo, and the running kernel boots with none
+# appended, so the repacked boot is our Image only (no 20MB dtb re-append, no
+# bloat) on every flasher - no reliance on $SPLITIMG paths here.
 
 ### Firmware guard
 # This kernel matches ONE stock kernel (KMI + identity), recorded at build
@@ -101,8 +105,13 @@ split_boot; # kernel only, no ramdisk unpack
 # build number only warns: the KMI is frozen and this build exports the full
 # symbol set. A non-stock kernel in the slot can't tell us the firmware, so
 # only warn. Override: "-force" in the zip name.
-nezha_want=$(cat $AKHOME/nezha-stock-release 2>/dev/null);
-nezha_have=$(strings $SPLITIMG/kernel 2>/dev/null | grep -m1 '^Linux version ' | cut -d' ' -f3);
+# Read the kernel currently in the target slot (what split_boot just dumped) the
+# same way flash_boot finds it, and pull the banner with grep -a (strings isn't
+# on every flasher). If a flasher didn't populate split_img, nezha_have is empty
+# and the guard fails open (skips) rather than blocking a legitimate flash.
+nezha_want=$(cat "$AKHOME/nezha-stock-release" 2>/dev/null);
+nezha_kern=$(ls "$SPLITIMG"/kernel* 2>/dev/null | grep -v kernel_dtb | tail -n1);
+nezha_have=$(grep -a -o -m1 'Linux version [^ ]*' "$nezha_kern" 2>/dev/null | cut -d' ' -f3);
 nezha_wkmi=$(echo "$nezha_want" | cut -d- -f1-3); # 6.12.69-android16-6
 case "$(basename "$ZIPFILE" .zip)" in *-force*) nezha_force=1;; esac;
 if [ ! "$nezha_want" -o ! "$nezha_have" ]; then
