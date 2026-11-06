@@ -148,6 +148,14 @@ rsync -a --exclude .git --exclude .github --exclude README.md \
   --exclude ramdisk --exclude patch --exclude modules "$AK3_SRC/" "$WORK/"
 cp "$SRC/nezha/anykernel/anykernel.sh" "$WORK/anykernel.sh"
 cp "$IMAGE" "$WORK/Image"
+# nezha (sm8850, ARMv9) is 64-bit-only: AArch32 is gone. A 32-bit ARM busybox
+# or magiskboot can't exec on-device and the AK3 installer dies ("Busybox setup
+# failed" / magiskboot "syntax error"). Refuse to ship a zip with 32-bit tools.
+for t in busybox magiskboot; do
+  [ -f "$WORK/tools/$t" ] || die "AK3 tools/$t missing in $AK3_SRC"
+  file -b "$WORK/tools/$t" | grep -q "ARM aarch64" \
+    || die "AK3 tools/$t is not aarch64 (device is 64-bit-only); put an arm64 build in $AK3_SRC/tools"
+done
 printf '%s\n' "$STOCK_RELEASE" > "$WORK/nezha-stock-release"   # firmware guard
 mkdir -p "$DIST"
 ZIP="$DIST/nezha-kernel-$STOCK_FW-$COMMIT-$STAMP.zip"

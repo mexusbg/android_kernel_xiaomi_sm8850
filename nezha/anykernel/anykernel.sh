@@ -83,6 +83,14 @@ ui_print " " "Target slot: ${SLOT:-?} (${SLOT_SELECT:-active})" "Reason: $nezha_
 # boot install
 split_boot; # kernel only, no ramdisk unpack
 
+### Drop stock's appended DTB
+# This device gets its DTB from dtbo/vendor_boot; the running kernel boots with
+# no DTB appended inside boot. magiskboot splits stock's appended DTB out to
+# split_img/kernel_dtb and would re-append it on repack, making the boot ~20MB
+# larger and structurally unlike the proven image. Remove it so the repacked
+# boot is our Image only (kernel_sz matches what boots now).
+[ -f "$SPLITIMG/kernel_dtb" ] && { ui_print "Dropping stock appended DTB (device uses dtbo)"; rm -f "$SPLITIMG/kernel_dtb"; }
+
 ### Firmware guard
 # This kernel matches ONE stock kernel (KMI + identity), recorded at build
 # time in nezha-stock-release. OTAs normally keep the same stock kernel, so
