@@ -84,21 +84,28 @@ ui_print " " "Target slot: ${SLOT:-?} (${SLOT_SELECT:-active})" "Reason: $nezha_
 split_boot; # kernel only, no ramdisk unpack
 
 ### Firmware guard
-# This kernel matches ONE stock firmware (KMI + identity), recorded at build
-# time in nezha-stock-release. After an OTA the target slot may hold a newer
-# stock kernel whose vendor modules this build cannot serve (no wifi/modem,
-# or no boot). Refuse to replace a stock kernel of a different release.
-# A non-stock kernel in the slot (e.g. switching from another custom kernel)
-# can't tell us the firmware, so only warn. Override: "-force" in the zip name.
+# This kernel matches ONE stock kernel (KMI + identity), recorded at build
+# time in nezha-stock-release. OTAs normally keep the same stock kernel, so
+# this passes silently. It only blocks when the target slot holds a stock
+# kernel of another sublevel or KMI generation (e.g. 6.12.69-android16-6 ->
+# 6.12.80-android16-6): its vendor modules may need symbols this build lacks
+# (no wifi/modem, or no boot). Same sublevel + KMI generation with another
+# build number only warns: the KMI is frozen and this build exports the full
+# symbol set. A non-stock kernel in the slot can't tell us the firmware, so
+# only warn. Override: "-force" in the zip name.
 nezha_want=$(cat $AKHOME/nezha-stock-release 2>/dev/null);
 nezha_have=$(strings $SPLITIMG/kernel 2>/dev/null | grep -m1 '^Linux version ' | cut -d' ' -f3);
+nezha_wkmi=$(echo "$nezha_want" | cut -d- -f1-3); # 6.12.69-android16-6
 case "$(basename "$ZIPFILE" .zip)" in *-force*) nezha_force=1;; esac;
 if [ ! "$nezha_want" -o ! "$nezha_have" ]; then
   ui_print "Firmware guard: cannot read kernel versions, skipped";
-elif [ "$nezha_have" == "$nezha_want" ]; then
+elif [ "$nezha_have" = "$nezha_want" ]; then
   ui_print "Firmware guard: OK ($nezha_have)";
 else
   case "$nezha_have" in
+    "$nezha_wkmi"-g*-ab*)
+      ui_print "Firmware guard: stock build changed, same KMI ($nezha_wkmi)" \
+        "  was $nezha_want" "  now $nezha_have" "  flashing (KMI frozen)";;
     *-android*-g*-ab*)
       if [ "$nezha_force" ]; then
         ui_print "Firmware guard: MISMATCH, forced by zip name";
