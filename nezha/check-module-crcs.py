@@ -10,7 +10,10 @@ Reads both formats:
   - classic  __versions          : struct { unsigned long crc; char name[56]; }
   - extended __version_ext_crcs  : u32[]  + __version_ext_names: NUL-separated names
 
-Usage: check-module-crcs.py <vmlinux.symvers> <dir-with-ko> [more dirs...]
+Usage: check-module-crcs.py [--allow mod.ko]... <vmlinux.symvers> <dir-with-ko> [more dirs...]
+
+--allow: module (file name) whose failures are reported but do not fail the
+         exit status, e.g. rust_binder.ko (Rust ABI can't match a stock build).
 """
 import os
 import struct
@@ -71,17 +74,22 @@ def module_exports(path):
 
 
 def main():
-    if len(sys.argv) < 3:
+    args = sys.argv[1:]
+    allowed = set()
+    while len(args) >= 2 and args[0] == "--allow":
+        allowed.add(args[1])
+        args = args[2:]
+    if len(args) < 2:
         sys.exit(__doc__)
     kernel = {}
-    with open(sys.argv[1]) as f:
+    with open(args[0]) as f:
         for line in f:
             p = line.split("\t")
             if len(p) >= 2:
                 kernel[p[1]] = int(p[0], 16)
 
     kos = []
-    for d in sys.argv[2:]:
+    for d in args[1:]:
         for root, _, files in os.walk(d):
             kos += [os.path.join(root, x) for x in files if x.endswith(".ko")]
     if not kos:
@@ -140,7 +148,13 @@ def main():
                 allm.setdefault(s, []).append(m)
         for s, mods in sorted(allm.items(), key=lambda x: -len(x[1])):
             print(f"  {s}  ({len(mods)} modules: {', '.join(mods[:5])}{' ...' if len(mods) > 5 else ''})")
-    sys.exit(1 if (bad_mods or missing_mods) else 0)
+    failed = (set(bad_mods) | set(missing_mods)) - allowed
+    tolerated = (set(bad_mods) | set(missing_mods)) & allowed
+    if tolerated:
+        print(f"\nallowed failures: {', '.join(sorted(tolerated))}")
+    print(f"RESULT: {'FAIL' if failed else 'PASS'}"
+          + (f" ({len(failed)} modules: {', '.join(sorted(failed)[:10])})" if failed else ""))
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

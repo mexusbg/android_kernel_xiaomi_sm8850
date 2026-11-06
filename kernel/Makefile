@@ -153,7 +153,11 @@ $(obj)/config_data.gz: $(obj)/config_data FORCE
 
 filechk_cat = cat $<
 
-$(obj)/config_data: $(KCONFIG_CONFIG) FORCE
+# IKCONFIG_SOURCE: embed this file as /proc/config.gz instead of the build
+# .config (used to present the stock firmware's config). Must be absolute.
+ikconfig-source := $(if $(IKCONFIG_SOURCE),$(IKCONFIG_SOURCE),$(KCONFIG_CONFIG))
+
+$(obj)/config_data: $(ikconfig-source) FORCE
 	$(call filechk,cat)
 
 $(obj)/kheaders.o: $(obj)/kheaders_data.tar.xz

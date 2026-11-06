@@ -28,6 +28,7 @@ supported.vendorpatchlevels=
 #     other slot active for next boot                          -> inactive
 #   - flashed as OTA postinstall (/postinstall/tmp)            -> inactive (AK3 core)
 # Manual override: put "-active" or "-inactive" in the zip file name.
+# (A firmware guard further down refuses a mismatched stock kernel.)
 nezha_slot_reason="";
 case "$(basename "$ZIPFILE" .zip)" in
   *-inactive*) SLOT_SELECT=inactive; nezha_slot_reason="forced by zip name";;
@@ -81,6 +82,37 @@ ui_print " " "Target slot: ${SLOT:-?} (${SLOT_SELECT:-active})" "Reason: $nezha_
 
 # boot install
 split_boot; # kernel only, no ramdisk unpack
+
+### Firmware guard
+# This kernel matches ONE stock firmware (KMI + identity), recorded at build
+# time in nezha-stock-release. After an OTA the target slot may hold a newer
+# stock kernel whose vendor modules this build cannot serve (no wifi/modem,
+# or no boot). Refuse to replace a stock kernel of a different release.
+# A non-stock kernel in the slot (e.g. switching from another custom kernel)
+# can't tell us the firmware, so only warn. Override: "-force" in the zip name.
+nezha_want=$(cat $AKHOME/nezha-stock-release 2>/dev/null);
+nezha_have=$(strings $SPLITIMG/kernel 2>/dev/null | grep -m1 '^Linux version ' | cut -d' ' -f3);
+case "$(basename "$ZIPFILE" .zip)" in *-force*) nezha_force=1;; esac;
+if [ ! "$nezha_want" -o ! "$nezha_have" ]; then
+  ui_print "Firmware guard: cannot read kernel versions, skipped";
+elif [ "$nezha_have" == "$nezha_want" ]; then
+  ui_print "Firmware guard: OK ($nezha_have)";
+else
+  case "$nezha_have" in
+    *-android*-g*-ab*)
+      if [ "$nezha_force" ]; then
+        ui_print "Firmware guard: MISMATCH, forced by zip name";
+      else
+        abort "Firmware mismatch - nothing flashed." \
+          "Slot $SLOT stock kernel: $nezha_have" \
+          "This zip is built for:  $nezha_want" \
+          "Rebuild for the new firmware (nezha/fetch-stock.sh)," \
+          "or add -force to the zip name.";
+      fi;;
+    *) ui_print "Firmware guard: slot has custom kernel ($nezha_have)" \
+         "  cannot verify firmware; this zip is for $nezha_want";;
+  esac;
+fi;
 
 flash_boot; # kernel only, no ramdisk repack
 ## end boot install
