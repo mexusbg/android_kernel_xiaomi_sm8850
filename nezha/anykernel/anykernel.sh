@@ -105,13 +105,18 @@ split_boot; # kernel only, no ramdisk unpack
 # build number only warns: the KMI is frozen and this build exports the full
 # symbol set. A non-stock kernel in the slot can't tell us the firmware, so
 # only warn. Override: "-force" in the zip name.
-# Read the kernel currently in the target slot (what split_boot just dumped) the
-# same way flash_boot finds it, and pull the banner with grep -a (strings isn't
-# on every flasher). If a flasher didn't populate split_img, nezha_have is empty
-# and the guard fails open (skips) rather than blocking a legitimate flash.
+# Read the banner of the kernel currently in the target slot. Different flashers
+# expose the dump differently, so try several sources: the raw dumped boot image
+# ($BOOTIMG), the split-off kernel, and (last resort) the live block device. Use
+# grep -a (strings isn't on every flasher). If none yield a banner, nezha_have is
+# empty and the guard fails open (skips) rather than blocking a legitimate flash.
 nezha_want=$(cat "$AKHOME/nezha-stock-release" 2>/dev/null);
-nezha_kern=$(ls "$SPLITIMG"/kernel* 2>/dev/null | grep -v kernel_dtb | tail -n1);
-nezha_have=$(grep -a -o -m1 'Linux version [^ ]*' "$nezha_kern" 2>/dev/null | cut -d' ' -f3);
+nezha_have="";
+for nezha_src in "$BOOTIMG" $(ls "$SPLITIMG"/kernel* 2>/dev/null | grep -v kernel_dtb) "$BLOCK"; do
+  [ -e "$nezha_src" ] || continue;
+  nezha_have=$(grep -a -o -m1 'Linux version [^ ]*' "$nezha_src" 2>/dev/null | cut -d' ' -f3);
+  [ "$nezha_have" ] && break;
+done;
 nezha_wkmi=$(echo "$nezha_want" | cut -d- -f1-3); # 6.12.69-android16-6
 case "$(basename "$ZIPFILE" .zip)" in *-force*) nezha_force=1;; esac;
 if [ ! "$nezha_want" -o ! "$nezha_have" ]; then
