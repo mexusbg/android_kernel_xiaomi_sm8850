@@ -195,3 +195,12 @@ build.sh
 # it is kernel build input, not output. Without this, the `*.patch` rule above
 # silently ignores new files under Kokuban/.
 !Kokuban/**/*.patch
+
+# nezha build artifacts
+/dist/
+
+# build logs
+/build.log
+/elfutils.log
+/pahole.log
+/crc-report.txt

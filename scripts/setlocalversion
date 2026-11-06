@@ -205,4 +205,12 @@ elif [ "${LOCALVERSION+set}" != "set" ]; then
 	scm_version="$(scm_version --short)"
 fi
 
+# Stock-identical release string (GKI/kleaf order):
+#   <KERNELVERSION>-<branch>-<kmi>-g<scm>-ab<build><CONFIG_LOCALVERSION>
+# Opt-in: only used when KERNEL_SCM_OVERRIDE is set by the build script.
+if [ -n "${KERNEL_SCM_OVERRIDE:-}" ]; then
+	echo "${KERNELVERSION}${KERNEL_SCM_OVERRIDE}${config_localversion}"
+	exit 0
+fi
+
 echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
