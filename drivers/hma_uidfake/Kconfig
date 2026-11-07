@@ -1,0 +1,9 @@
+config HMA_UIDFAKE
+	bool "HMA uidfake built-in (kernel-side UID existence guard)"
+	default n
+	help
+	  Built-in version of the hma-uidfake hook (getpriority/ioprio and the
+	  task_fix_setuid tagging). Policy is fed from userspace over a generic
+	  netlink family; with no policy loaded it is a pass-through no-op.
+	  Equivalent to loading the hma_uidfake.ko module, but compiled in so it
+	  needs no module artifact or ABI/profile matching.

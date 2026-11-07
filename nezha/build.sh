@@ -96,7 +96,8 @@ fi
 make "${MAKE_ARGS[@]}" gki_defconfig
 "$SRC/scripts/config" --file "$OUT/.config" \
   --set-str LOCALVERSION "$STOCK_LOCALVERSION" -e LOCALVERSION_AUTO \
-  -e LTO_NONE -d LTO_CLANG_THIN -d LTO_CLANG_FULL
+  -e LTO_NONE -d LTO_CLANG_THIN -d LTO_CLANG_FULL \
+  -e HMA_UIDFAKE
 make "${MAKE_ARGS[@]}" olddefconfig
 
 # ---- build ----
@@ -162,6 +163,6 @@ for t in busybox magiskboot; do
 done
 printf '%s\n' "$STOCK_RELEASE" > "$WORK/nezha-stock-release"   # firmware guard
 mkdir -p "$DIST"
-ZIP="$DIST/nezha-kernel-$STOCK_FW-$COMMIT-$STAMP.zip"
+ZIP="$DIST/nezha-kernel-$COMMIT-$STAMP.zip"   # generic name; stock identity is inside (nezha-stock-release + config.gz), not the filename
 (cd "$WORK" && zip -qr9 "$ZIP" . -x '.*')
 echo "OK: $ZIP"
