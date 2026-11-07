@@ -24,6 +24,8 @@ jobs:
       TC: ${{ github.workspace }}/toolchain-k2025
       ABT: ${{ github.workspace }}/aosp-build-tools
       STOCK_ROOT: ${{ github.workspace }}/stock-modules
+      ELFUTILS_PREFIX: ${{ github.workspace }}/elfutils
+      AK3_SRC: ${{ github.workspace }}/AnyKernel3
     steps:
       - name: Checkout kernel
         uses: actions/checkout@v4
@@ -75,7 +77,7 @@ jobs:
 
       - name: Build host elfutils with zstd
         working-directory: nezha-kernel
-        run: ELFUTILS_PREFIX="$HOME/toolchain/elfutils" bash nezha/build-elfutils.sh || true
+        run: bash nezha/build-elfutils.sh
 
       - name: Pull stock vendor modules (private; optional)
         id: stock
@@ -95,24 +97,20 @@ jobs:
               tar -C "$(dirname "$t")" -xf "$t"
             done
             rm -f ~/.ssh/stock_ro
-            echo "have_stock=1" >> "$GITHUB_OUTPUT"
+            # leave skip_crc unset (empty) -> build.sh runs the CRC gate
           else
             echo "No stock-modules store configured; module CRC gate will be skipped." >&2
-            echo "have_stock=0" >> "$GITHUB_OUTPUT"
+            echo "skip_crc=1" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Clone AnyKernel3 (arm64 tools)
-        run: git clone --depth 1 https://github.com/mexusbg/AnyKernel3 "$HOME/AnyKernel3" || git clone --depth 1 https://github.com/osm0sis/AnyKernel3 "$HOME/AnyKernel3"
+        run: git clone --depth 1 https://github.com/mexusbg/AnyKernel3 "$AK3_SRC" || git clone --depth 1 https://github.com/osm0sis/AnyKernel3 "$AK3_SRC"
 
       - name: Build
         working-directory: nezha-kernel
         env:
-          TC: ${{ env.TC }}
           AOSP_BUILD_TOOLS: ${{ env.ABT }}
-          STOCK_ROOT: ${{ env.STOCK_ROOT }}
-          AK3_SRC: ${{ env.HOME }}/AnyKernel3
-          ELFUTILS_PREFIX: ${{ env.HOME }}/toolchain/elfutils
-          SKIP_CRC: ${{ steps.stock.outputs.have_stock == '1' && '' || '1' }}
+          SKIP_CRC: ${{ steps.stock.outputs.skip_crc }}
         run: bash nezha/build.sh
 
       - name: Upload zip
