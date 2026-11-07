@@ -59,7 +59,7 @@ jobs:
           # clang prebuilt from the AOSP main-kernel-2025 manifest.
           mkdir -p "$TC/clang"
           BASE=https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive
-          curl -L "$BASE/refs/heads/main-kernel-2025/clang-r536225.tar.gz" -o clang.tgz
+          curl -fL "$BASE/refs/heads/main-kernel-2025/clang-r536225.tar.gz" -o clang.tgz
           tar -xzf clang.tgz -C "$TC/clang"
           echo "$TC/clang/bin" >> "$GITHUB_PATH"
           # rust + bindgen from the same manifest if the build needs them
@@ -68,8 +68,8 @@ jobs:
       - name: Fetch AOSP build-tools pahole
         run: |
           mkdir -p "$ABT"
-          BASE=https://android.googlesource.com/platform/prebuilts/kernel-build-tools/+archive
-          curl -L "$BASE/refs/heads/main-kernel-2025/linux-x86.tar.gz" -o bt.tgz
+          BASE=https://android.googlesource.com/kernel/prebuilts/build-tools/+archive
+          curl -fL "$BASE/refs/heads/main-kernel-2025/linux-x86.tar.gz" -o bt.tgz
           tar -xzf bt.tgz -C "$ABT"
           test -x "$ABT/bin/pahole"
 
