@@ -3,8 +3,9 @@ name: Build nezha kernel
 # Builds the stock-identical AnyKernel3 zip. The identity gates (banner,
 # /proc/config.gz, clang build id) run from in-repo data. The per-module CRC
 # gate needs the stock vendor .ko set, which is NOT public: it is pulled from a
-# private store when STOCK_REPO + STOCK_REPO_PAT secrets are set, otherwise that
-# one gate is skipped (SKIP_CRC) and the rest still run.
+# private store over a read-only SSH deploy key when the STOCK_REPO_SSH +
+# STOCK_SSH_KEY secrets are set, otherwise that one gate is skipped (SKIP_CRC)
+# and the rest still run.
 
 on:
   workflow_dispatch:
@@ -79,11 +80,21 @@ jobs:
       - name: Pull stock vendor modules (private; optional)
         id: stock
         env:
-          STOCK_REPO: ${{ secrets.STOCK_REPO }}
-          STOCK_REPO_PAT: ${{ secrets.STOCK_REPO_PAT }}
+          STOCK_REPO_SSH: ${{ secrets.STOCK_REPO_SSH }}
+          STOCK_SSH_KEY: ${{ secrets.STOCK_SSH_KEY }}
         run: |
-          if [ -n "$STOCK_REPO" ] && [ -n "$STOCK_REPO_PAT" ]; then
-            git clone --depth 1 "https://x-access-token:${STOCK_REPO_PAT}@github.com/${STOCK_REPO}.git" "$STOCK_ROOT"
+          if [ -n "$STOCK_REPO_SSH" ] && [ -n "$STOCK_SSH_KEY" ]; then
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            printf '%s\n' "$STOCK_SSH_KEY" > ~/.ssh/stock_ro && chmod 600 ~/.ssh/stock_ro
+            ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+            GIT_SSH_COMMAND="ssh -i ~/.ssh/stock_ro -o IdentitiesOnly=yes" \
+              git clone --depth 1 "$STOCK_REPO_SSH" "$STOCK_ROOT"
+            # extract the per-firmware module tarball(s) in place next to them,
+            # so $STOCK_ROOT/<fw>/modules/ is what build.sh's CRC gate reads
+            for t in "$STOCK_ROOT"/*/modules.tar.xz; do
+              tar -C "$(dirname "$t")" -xf "$t"
+            done
+            rm -f ~/.ssh/stock_ro
             echo "have_stock=1" >> "$GITHUB_OUTPUT"
           else
             echo "No stock-modules store configured; module CRC gate will be skipped." >&2
