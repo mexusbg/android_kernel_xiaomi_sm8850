@@ -67,6 +67,11 @@ trap 'rm -rf "$WRAP" ${WORK:+"$WORK"}' EXIT
 printf '#!/bin/sh\nLD_LIBRARY_PATH="%s/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" exec "%s/bin/pahole" "$@"\n' "$ABT" "$ABT" > "$WRAP/pahole"
 chmod +x "$WRAP/pahole"
 export PATH="$WRAP:$TC/clang/bin:$TC/rust/bin:$BINDGEN_DIR:$PATH"
+# Pin bindgen's libclang to the clang prebuilt. clang-sys (inside bindgen)
+# otherwise auto-discovers a system libclang (e.g. on CI runners), and a
+# mismatched libclang mis-parses task_struct into an opaque type -> the Rust
+# kernel crate fails with "no field ... on type bindings::task_struct".
+export LIBCLANG_PATH="${LIBCLANG_PATH:-$TC/clang/lib}"
 # host libdw/libelf with zstd support (see nezha/build-elfutils.sh)
 EU="${ELFUTILS_PREFIX:-$HOME/toolchain/elfutils}"
 [ -f "$EU/include/elfutils/libdw.h" ] || die "run nezha/build-elfutils.sh first"
