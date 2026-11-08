@@ -39,11 +39,11 @@ jobs:
         with:
           repository: mexusbg/BakaSU
           ref: selinux-timing-3936-413
-          path: KernelSU
+          path: nezha-kernel/KernelSU
           fetch-depth: 1
 
       - name: Wire KernelSU into the tree
-        run: ln -sf ../../KernelSU/kernel nezha-kernel/drivers/kernelsu
+        run: ln -sf ../KernelSU/kernel nezha-kernel/drivers/kernelsu
 
       - name: Free disk space
         run: |
