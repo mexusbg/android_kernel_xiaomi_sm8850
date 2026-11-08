@@ -13,8 +13,12 @@ mkdir -p "$SRCDIR"; cd "$SRCDIR"
 [ -f "elfutils-$VER.tar.bz2" ] || curl -fsSLO "https://sourceware.org/elfutils/ftp/$VER/elfutils-$VER.tar.bz2"
 rm -rf "elfutils-$VER"; tar -xjf "elfutils-$VER.tar.bz2"
 cd "elfutils-$VER"
+# Newer host GCC (ubuntu-latest) treats riscv_disasm.c's discarded-qualifiers
+# as a hard error; --disable-werror alone is not honoured, so force -Wno-error
+# via CFLAGS (automake appends user CFLAGS last, overriding the built-in -Werror).
 ./configure --prefix="$PREFIX" --with-zstd --disable-werror \
-  --disable-debuginfod --disable-libdebuginfod --disable-nls --program-prefix=eu-
+  --disable-debuginfod --disable-libdebuginfod --disable-nls --program-prefix=eu- \
+  CFLAGS="-g -O2 -Wno-error"
 make -j"$(nproc)"
 make install
 grep -q "define USE_ZSTD 1" config.h || { echo "elfutils built without zstd" >&2; exit 1; }
