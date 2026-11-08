@@ -114,8 +114,19 @@ jobs:
             echo "skip_crc=1" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Clone AnyKernel3 (arm64 tools)
-        run: git clone --depth 1 https://github.com/mexusbg/AnyKernel3 "$AK3_SRC" || git clone --depth 1 https://github.com/osm0sis/AnyKernel3 "$AK3_SRC"
+      - name: Clone AnyKernel3 + arm64 flash tools
+        run: |
+          git clone --depth 1 https://github.com/osm0sis/AnyKernel3 "$AK3_SRC"
+          # nezha (sm8850) is 64-bit-only; AK3's default arm32 busybox/magiskboot
+          # cannot exec on it. Swap in arm64 builds from the official Magisk
+          # release (libbusybox.so / libmagiskboot.so are the arm64 binaries).
+          curl -fL https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk -o /tmp/magisk.apk
+          unzip -o -j /tmp/magisk.apk lib/arm64-v8a/libbusybox.so   -d "$AK3_SRC/tools"
+          unzip -o -j /tmp/magisk.apk lib/arm64-v8a/libmagiskboot.so -d "$AK3_SRC/tools"
+          mv -f "$AK3_SRC/tools/libbusybox.so"   "$AK3_SRC/tools/busybox"
+          mv -f "$AK3_SRC/tools/libmagiskboot.so" "$AK3_SRC/tools/magiskboot"
+          chmod +x "$AK3_SRC/tools/busybox" "$AK3_SRC/tools/magiskboot"
+          file "$AK3_SRC/tools/busybox" "$AK3_SRC/tools/magiskboot"
 
       - name: Build
         working-directory: nezha-kernel
