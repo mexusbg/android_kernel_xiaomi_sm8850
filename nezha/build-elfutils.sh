@@ -13,7 +13,7 @@ mkdir -p "$SRCDIR"; cd "$SRCDIR"
 [ -f "elfutils-$VER.tar.bz2" ] || curl -fsSLO "https://sourceware.org/elfutils/ftp/$VER/elfutils-$VER.tar.bz2"
 rm -rf "elfutils-$VER"; tar -xjf "elfutils-$VER.tar.bz2"
 cd "elfutils-$VER"
-./configure --prefix="$PREFIX" --with-zstd \
+./configure --prefix="$PREFIX" --with-zstd --disable-werror \
   --disable-debuginfod --disable-libdebuginfod --disable-nls --program-prefix=eu-
 make -j"$(nproc)"
 make install
