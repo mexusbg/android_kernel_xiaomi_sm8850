@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
   push:
     branches: [ nezha-kernel ]
+    tags: [ 'v*' ]        # a pushed tag builds and publishes a Release (path filters do not apply to tags)
     paths-ignore: [ '**/*.md' ]
 
 concurrency:
@@ -20,6 +21,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write     # create the Release + upload the zip asset on a tag
     env:
       TC: ${{ github.workspace }}/toolchain-k2025
       ABT: ${{ github.workspace }}/aosp-build-tools
@@ -141,3 +144,23 @@ jobs:
           name: nezha-kernel-zip
           path: nezha-kernel/dist/*.zip
           if-no-files-found: error
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s\n' \
+            'Stock-identical GKI 6.12.69 kernel for Xiaomi 17 (nezha / sm8850).' \
+            '' \
+            '- uname / /proc/version / config.gz byte-identical to OS4.0.1.0.XPAEUXM' \
+            '- Per-module KMI CRC gate: PASS against the stock vendor/system modules' \
+            '- KernelSU (BakaSU) with selinux_hide #3936 + 413 timing fix' \
+            '- Built-in hma-uidfake UID-existence hook (CONFIG_HMA_UIDFAKE); pair with the hma-uidfake-feeder module' \
+            '' \
+            'Flash the AnyKernel3 zip from the BakaSU / KernelSU / Magisk manager or a kernel flasher. The device is 64-bit-only.' \
+            > /tmp/relnotes.md
+          gh release create "${{ github.ref_name }}" nezha-kernel/dist/*.zip \
+            --repo "${{ github.repository }}" \
+            --title "nezha ${{ github.ref_name }}" \
+            --notes-file /tmp/relnotes.md
