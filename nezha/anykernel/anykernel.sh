@@ -51,7 +51,16 @@ if [ ! "$SLOT_SELECT" -a ! -d /postinstall/tmp ]; then
     else
       SLOT_SELECT=active; nezha_slot_reason="no pending OTA: next boot slot = running $nezha_cur";
     fi;
-  # 2) fallback: update_engine status
+  # 2) Virtual A/B: an applied-but-unbooted OTA leaves the snapshot "unverified"
+  #    and update_engine has ALREADY switched the active slot to the other one.
+  #    bootctl's HAL is unreachable on some devices (e.g. nezha: the only bootctl
+  #    is KSU's shim, which errors), so read the snapshot state directly. Only the
+  #    pre-reboot "unverified" state means the other slot boots next; "merging"
+  #    means we are already ON the new slot, so it must NOT count as pending.
+  elif command -v snapshotctl >/dev/null 2>&1 \
+       && snapshotctl dump 2>/dev/null | grep -qi 'Update state: unverified'; then
+    SLOT_SELECT=inactive; nezha_slot_reason="pending OTA (snapshot unverified): flashing the other slot";
+  # 3) fallback: update_engine status (flag name differs across builds; best-effort)
   elif command -v update_engine_client >/dev/null 2>&1 \
        && update_engine_client --status 2>&1 | grep -q UPDATED_NEED_REBOOT; then
     SLOT_SELECT=inactive; nezha_slot_reason="update_engine: UPDATED_NEED_REBOOT";
